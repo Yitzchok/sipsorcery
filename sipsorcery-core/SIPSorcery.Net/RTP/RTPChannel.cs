@@ -80,8 +80,6 @@ namespace SIPSorcery.Net
 
         private static Mutex _allocatePortsMutex = new Mutex();
 
-        private static IPEndPoint _wiresharkEP = new IPEndPoint(IPAddress.Parse("10.1.1.3"), 10001);
-
         private Socket _rtpSocket;
         private SocketError _rtpSocketError = SocketError.Success;
         private Socket _controlSocket;
@@ -147,6 +145,8 @@ namespace SIPSorcery.Net
         //}
 
         public bool DontTimeout { get; set; }           // If set to true means a server should not timeout this session even if no activity is received on the RTP socket.
+
+        public IPEndPoint MirrorEndpoint { get; set; }
 
         public bool IsClosed
         {
@@ -367,7 +367,8 @@ namespace SIPSorcery.Net
 
                         if (bytesRead > 0)
                         {
-                            _rtpSocket.SendTo(buffer, bytesRead, SocketFlags.None, _wiresharkEP);
+                            if (MirrorEndpoint != null)
+                                _rtpSocket.SendTo(buffer, bytesRead, SocketFlags.None, MirrorEndpoint);
 
                             _rtpLastActivityAt = DateTime.Now;
 
