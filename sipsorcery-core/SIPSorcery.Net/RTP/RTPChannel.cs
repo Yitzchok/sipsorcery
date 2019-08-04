@@ -255,23 +255,39 @@ namespace SIPSorcery.Net
 
                 if (_rtpPort != 0 && _controlPort != 0)
                 {
-                    // The potential ports have been found now try and use them.
-                    _rtpSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-                    _rtpSocket.ReceiveBufferSize = RTP_RECEIVE_BUFFER_SIZE;
-                    _rtpSocket.SendBufferSize = RTP_SEND_BUFFER_SIZE;
-
-                    _rtpSocket.Bind(new IPEndPoint(IPAddress.Any, _rtpPort));
-
-                    _controlSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-                    _controlSocket.Bind(new IPEndPoint(IPAddress.Any, _controlPort));
-
-                    logger.Debug("RTPChannel allocated RTP port of " + _rtpPort + " and control port of " + _controlPort + ".");
+                    ReservePort(_rtpPort, _controlPort);
                 }
                 else
                 {
                     throw new ApplicationException("An RTPChannel could not allocate the RTP and/or control ports within the range of " + startPort + " to " + endPort + ".");
                 }
             }
+        }
+
+        /// <summary>
+        /// Attempts to reserve the specific RTP port and the control port will be RTP port + 1 for the RTP session.
+        /// </summary>
+        public void ReservePort(int rtpPort)
+        {
+            ReservePort(rtpPort, rtpPort + 1);
+        }
+
+        /// <summary>
+        /// Attempts to reserve the specific RTP and control ports for the RTP session.
+        /// </summary>
+        public void ReservePort(int rtpPort, int controlPort)
+        {
+            // The potential ports have been found now try and use them.
+            _rtpSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+            _rtpSocket.ReceiveBufferSize = RTP_RECEIVE_BUFFER_SIZE;
+            _rtpSocket.SendBufferSize = RTP_SEND_BUFFER_SIZE;
+
+            _rtpSocket.Bind(new IPEndPoint(IPAddress.Any, rtpPort));
+
+            _controlSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+            _controlSocket.Bind(new IPEndPoint(IPAddress.Any, controlPort));
+
+            logger.Debug("RTPChannel allocated RTP port of " + rtpPort + " and control port of " + controlPort + ".");
         }
 
         /// <summary>
