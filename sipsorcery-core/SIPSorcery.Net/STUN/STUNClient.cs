@@ -20,62 +20,67 @@ namespace SIPSorcery.Net
 
         public static IPAddress GetPublicIPAddress(string stunServer)
         {
+            return GetPublicIPAddress(stunServer, m_defaultSTUNPort);
+        }
+
+        public static IPAddress GetPublicIPAddress(string stunServer, int port)
+        {
             try
             {
                 logger.Debug("STUNClient attempting to determine public IP from " + stunServer + ".");
 
-                using (UdpClient udpClient = new UdpClient(stunServer, m_defaultSTUNPort))
+                using (UdpClient udpClient = new UdpClient(stunServer, port))
                 {
-                        STUNMessage initMessage = new STUNMessage(STUNMessageTypesEnum.BindingRequest);
-                        byte[] stunMessageBytes = initMessage.ToByteBuffer();
-                        udpClient.Send(stunMessageBytes, stunMessageBytes.Length);
+                    STUNMessage initMessage = new STUNMessage(STUNMessageTypesEnum.BindingRequest);
+                    byte[] stunMessageBytes = initMessage.ToByteBuffer();
+                    udpClient.Send(stunMessageBytes, stunMessageBytes.Length);
 
-                        IPAddress publicIPAddress = null;
-                        ManualResetEvent gotResponseMRE = new ManualResetEvent(false);
+                    IPAddress publicIPAddress = null;
+                    ManualResetEvent gotResponseMRE = new ManualResetEvent(false);
 
-                        udpClient.BeginReceive((ar) =>
+                    udpClient.BeginReceive((ar) =>
+                    {
+                        try
                         {
-                            try
+                            IPEndPoint stunResponseEndPoint = null;
+                            byte[] stunResponseBuffer = udpClient.EndReceive(ar, ref stunResponseEndPoint);
+
+                            if (stunResponseBuffer != null && stunResponseBuffer.Length > 0)
                             {
-                                IPEndPoint stunResponseEndPoint = null;
-                                byte[] stunResponseBuffer = udpClient.EndReceive(ar, ref stunResponseEndPoint);
+                                logger.Debug("STUNClient Response to initial STUN message received from " + stunResponseEndPoint + ".");
+                                STUNMessage stunResponse = STUNMessage.ParseSTUNMessage(stunResponseBuffer, stunResponseBuffer.Length);
 
-                                if (stunResponseBuffer != null && stunResponseBuffer.Length > 0)
+                                if (stunResponse.Attributes.Count > 0)
                                 {
-                                    logger.Debug("STUNClient Response to initial STUN message received from " + stunResponseEndPoint + ".");
-                                    STUNMessage stunResponse = STUNMessage.ParseSTUNMessage(stunResponseBuffer, stunResponseBuffer.Length);
-
-                                    if (stunResponse.Attributes.Count > 0)
+                                    foreach (STUNAttribute stunAttribute in stunResponse.Attributes)
                                     {
-                                        foreach (STUNAttribute stunAttribute in stunResponse.Attributes)
+                                        if (stunAttribute.AttributeType == STUNAttributeTypesEnum.MappedAddress)
                                         {
-                                            if (stunAttribute.AttributeType == STUNAttributeTypesEnum.MappedAddress)
-                                            {
-                                                publicIPAddress = ((STUNAddressAttribute)stunAttribute).Address;
-                                                logger.Debug("STUNClient Public IP=" + publicIPAddress.ToString() + ".");
-                                            }
+                                            publicIPAddress = ((STUNAddressAttribute)stunAttribute).Address;
+                                            logger.Debug("STUNClient Public IP=" + publicIPAddress.ToString() + ".");
                                         }
                                     }
                                 }
-
-                                gotResponseMRE.Set();
                             }
-                            catch (Exception recvExcp)
-                            {
-                                logger.Warn("Exception STUNClient Receive. " + recvExcp.Message);
-                            }
-                        }, null);
 
-                        if (gotResponseMRE.WaitOne(STUN_SERVER_RESPONSE_TIMEOUT * 1000))
-                        {
-                            return publicIPAddress;
+                            gotResponseMRE.Set();
                         }
-                        else
+                        catch (Exception recvExcp)
                         {
-                            logger.Warn("STUNClient server response timedout after " + STUN_SERVER_RESPONSE_TIMEOUT + "s.");
-                            return null;
+                            logger.Warn("Exception STUNClient Receive. " + recvExcp.Message);
                         }
+                    }, null);
+
+                    if (gotResponseMRE.WaitOne(STUN_SERVER_RESPONSE_TIMEOUT * 1000))
+                    {
+                        return publicIPAddress;
                     }
+                    else
+                    {
+                        logger.Warn("STUNClient server response timedout after " + STUN_SERVER_RESPONSE_TIMEOUT + "s.");
+                        return null;
+                    }
+                }
             }
             catch (Exception excp)
             {
