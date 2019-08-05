@@ -222,8 +222,8 @@ namespace SIPSorcery.Net
             {
                 var inUseUDPPorts = (from p in System.Net.NetworkInformation.IPGlobalProperties.GetIPGlobalProperties().GetActiveUdpListeners() where p.Port >= startPort select p.Port).OrderBy(x => x).ToList();
 
-                _rtpPort = 0;
-                _controlPort = 0;
+                int rtpPort = 0;
+                int controlPort = 0;
 
                 if (inUseUDPPorts.Count > 0)
                 {
@@ -232,30 +232,30 @@ namespace SIPSorcery.Net
                     {
                         if (!inUseUDPPorts.Contains(index))
                         {
-                            _rtpPort = index;
+                            rtpPort = index;
                             break;
                         }
                     }
 
                     // Find the next available for the control socket.
-                    for (int index = _rtpPort + 1; index <= endPort; index++)
+                    for (int index = rtpPort + 1; index <= endPort; index++)
                     {
                         if (!inUseUDPPorts.Contains(index))
                         {
-                            _controlPort = index;
+                            controlPort = index;
                             break;
                         }
                     }
                 }
                 else
                 {
-                    _rtpPort = startPort;
-                    _controlPort = startPort + 1;
+                    rtpPort = startPort;
+                    controlPort = startPort + 1;
                 }
 
-                if (_rtpPort != 0 && _controlPort != 0)
+                if (rtpPort != 0 && controlPort != 0)
                 {
-                    ReservePort(_rtpPort, _controlPort);
+                    ReservePort(rtpPort, controlPort);
                 }
                 else
                 {
@@ -277,6 +277,9 @@ namespace SIPSorcery.Net
         /// </summary>
         public void ReservePort(int rtpPort, int controlPort)
         {
+            _rtpPort = rtpPort;
+            _controlPort = controlPort;
+
             // The potential ports have been found now try and use them.
             _rtpSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
             _rtpSocket.ReceiveBufferSize = RTP_RECEIVE_BUFFER_SIZE;
